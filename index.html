@@ -195,6 +195,9 @@
         font-size: 23px;
       }
     }
+    #statusChart {
+  min-height: 260px;
+}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -290,12 +293,11 @@
        <canvas id="progressChart"></canvas>
       </div>
 
-      <div class="panel">
-        <h2>สถานะโครงการแยกตามส่วนงาน</h2>
-        <div class="chart-placeholder">
-          รอเชื่อมข้อมูลจาก Google Sheets
-        </div>
-      </div>
+     <div class="panel">
+  <h2>สถานะโครงการแยกตามส่วนงาน</h2>
+
+  <canvas id="statusChart"></canvas>
+</div>
 
     </section>
 
@@ -340,6 +342,7 @@ const API_URL =
 
 let projectData = [];
   let progressChart;
+  let statusChart;
 
 // แปลงค่าร้อยละจาก Google Sheets
 function percentValue(value) {
@@ -463,6 +466,99 @@ function renderProgressChart() {
     }
   });
 }
+  function renderStatusChart() {
+  const year = document.getElementById("yearFilter").value;
+  const month = document.getElementById("monthFilter").value;
+  const section = document.getElementById("sectionFilter").value;
+
+  const rows = projectData.filter(row =>
+    row.fiscalYear === year &&
+    row.month === month &&
+    (section === "ทั้งหมด" || row.section === section)
+  );
+
+  const sectionNames = [...new Set(rows.map(row => row.section))];
+
+  const onTrackData = sectionNames.map(sec =>
+    rows.filter(row => row.section === sec && row.status === "ตามแผน").length
+  );
+
+  const delayedData = sectionNames.map(sec =>
+    rows.filter(row => row.section === sec && row.status === "ล่าช้า").length
+  );
+
+  const completedData = sectionNames.map(sec =>
+    rows.filter(row => row.section === sec && row.status === "แล้วเสร็จ").length
+  );
+
+  const notReportedData = sectionNames.map(sec =>
+    rows.filter(row => row.section === sec && row.status === "ยังไม่รายงาน").length
+  );
+
+  const canvas = document.getElementById("statusChart");
+
+  if (!canvas) return;
+
+  if (statusChart) {
+    statusChart.destroy();
+  }
+
+  statusChart = new Chart(canvas, {
+    type: "bar",
+
+    data: {
+      labels: sectionNames,
+
+      datasets: [
+        {
+          label: "ตามแผน",
+          data: onTrackData,
+          backgroundColor: "#2F75B5"
+        },
+        {
+          label: "ล่าช้า",
+          data: delayedData,
+          backgroundColor: "#C0504D"
+        },
+        {
+          label: "แล้วเสร็จ",
+          data: completedData,
+          backgroundColor: "#70AD47"
+        },
+        {
+          label: "ยังไม่รายงาน",
+          data: notReportedData,
+          backgroundColor: "#A5A5A5"
+        }
+      ]
+    },
+
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+
+      plugins: {
+        legend: {
+          position: "bottom"
+        }
+      },
+
+      scales: {
+        x: {
+          stacked: true
+        },
+
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: {
+            precision: 0
+          }
+        }
+      }
+    }
+  });
+}
 async function loadData() {
   try {
     const response = await fetch(API_URL);
@@ -563,6 +659,7 @@ function updateDashboard() {
 
   renderTable(rows);
   renderProgressChart();
+  renderStatusChart();
 }
 
 
