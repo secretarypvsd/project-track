@@ -335,6 +335,169 @@
   <footer class="footer">
     Project Track • Monthly Plan and Project Monitoring Dashboard
   </footer>
+<script>
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbzRTqvK3C34TyTW5wta7Q3JsrZZcoPYawZjlQmb9js_Xc-FMYTUM-skWq3Uz1olcMgoIw/exec";
 
+let projectData = [];
+
+// แปลงค่าร้อยละจาก Google Sheets
+function percentValue(value) {
+  const n = Number(value) || 0;
+  return Math.abs(n) <= 1 ? n * 100 : n;
+}
+
+function formatPercent(value) {
+  return percentValue(value).toFixed(1) + "%";
+}
+
+function formatMoney(value) {
+  return new Intl.NumberFormat("th-TH", {
+    maximumFractionDigits: 0
+  }).format(Number(value) || 0);
+}
+
+async function loadData() {
+  try {
+    const response = await fetch(API_URL);
+
+    if (!response.ok) {
+      throw new Error("ไม่สามารถเชื่อมต่อ API ได้");
+    }
+
+    const data = await response.json();
+    projectData = data.rows || [];
+
+    setupFilters();
+    updateDashboard();
+
+  } catch (error) {
+    console.error(error);
+
+    document.getElementById("projectTable").innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center;color:#b42318;">
+          ไม่สามารถเชื่อมต่อข้อมูล Google Sheets ได้
+        </td>
+      </tr>
+    `;
+  }
+}
+
+
+function setupFilters() {
+  const yearFilter = document.getElementById("yearFilter");
+  const monthFilter = document.getElementById("monthFilter");
+  const sectionFilter = document.getElementById("sectionFilter");
+
+  // ปีงบประมาณ
+  const years = [...new Set(projectData.map(r => r.fiscalYear))]
+    .filter(Boolean)
+    .sort();
+
+  yearFilter.innerHTML = years
+    .map(y => `<option value="${y}">${y}</option>`)
+    .join("");
+
+  // ส่วนงาน
+  const sections = [...new Set(projectData.map(r => r.section))]
+    .filter(Boolean);
+
+  sectionFilter.innerHTML =
+    `<option value="ทั้งหมด">ทั้งหมด</option>` +
+    sections.map(s => `<option value="${s}">${s}</option>`).join("");
+
+  yearFilter.addEventListener("change", updateDashboard);
+  monthFilter.addEventListener("change", updateDashboard);
+  sectionFilter.addEventListener("change", updateDashboard);
+}
+
+
+function getFilteredData() {
+  const year = document.getElementById("yearFilter").value;
+  const month = document.getElementById("monthFilter").value;
+  const section = document.getElementById("sectionFilter").value;
+
+  return projectData.filter(row => {
+    const yearMatch = row.fiscalYear === year;
+    const monthMatch = row.month === month;
+    const sectionMatch =
+      section === "ทั้งหมด" || row.section === section;
+
+    return yearMatch && monthMatch && sectionMatch;
+  });
+}
+
+
+function updateDashboard() {
+  const rows = getFilteredData();
+
+  const reported = rows.filter(
+    r => r.status && r.status !== "ยังไม่รายงาน"
+  );
+
+  const onTrack = rows.filter(r => r.status === "ตามแผน");
+  const delayed = rows.filter(r => r.status === "ล่าช้า");
+  const completed = rows.filter(r => r.status === "แล้วเสร็จ");
+
+  const avgProgress = rows.length
+    ? rows.reduce(
+        (sum, r) => sum + percentValue(r.actualCum),
+        0
+      ) / rows.length
+    : 0;
+
+  document.getElementById("totalProjects").textContent = rows.length;
+  document.getElementById("reportedProjects").textContent = reported.length;
+  document.getElementById("onTrackProjects").textContent = onTrack.length;
+  document.getElementById("delayedProjects").textContent = delayed.length;
+  document.getElementById("completedProjects").textContent = completed.length;
+  document.getElementById("avgProgress").textContent =
+    avgProgress.toFixed(1) + "%";
+
+  renderTable(rows);
+}
+
+
+function renderTable(rows) {
+  const tbody = document.getElementById("projectTable");
+
+  if (!rows.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center;">
+          ไม่พบข้อมูล
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(row => `
+    <tr>
+      <td>${row.section || "-"}</td>
+
+      <td>
+        <strong>${row.project || "-"}</strong>
+      </td>
+
+      <td>${formatPercent(row.planCum)}</td>
+
+      <td>${formatPercent(row.actualCum)}</td>
+
+      <td>
+        <span class="status">
+          ${row.status || "ยังไม่รายงาน"}
+        </span>
+      </td>
+
+      <td>${formatMoney(row.disbursement)} บาท</td>
+    </tr>
+  `).join("");
+}
+
+
+loadData();
+</script>
 </body>
 </html>
