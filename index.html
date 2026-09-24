@@ -196,6 +196,7 @@
       }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -286,9 +287,7 @@
 
       <div class="panel">
         <h2>แผนสะสมเทียบผลสะสม</h2>
-        <div class="chart-placeholder">
-          รอเชื่อมข้อมูลจาก Google Sheets
-        </div>
+       <canvas id="progressChart"></canvas>
       </div>
 
       <div class="panel">
@@ -340,6 +339,7 @@ const API_URL =
   "https://script.google.com/macros/s/AKfycbzRTqvK3C34TyTW5wta7Q3JsrZZcoPYawZjlQmb9js_Xc-FMYTUM-skWq3Uz1olcMgoIw/exec";
 
 let projectData = [];
+  let progressChart;
 
 // แปลงค่าร้อยละจาก Google Sheets
 function percentValue(value) {
@@ -356,7 +356,113 @@ function formatMoney(value) {
     maximumFractionDigits: 0
   }).format(Number(value) || 0);
 }
+function renderProgressChart() {
+  const year = document.getElementById("yearFilter").value;
+  const selectedMonth = document.getElementById("monthFilter").value;
+  const section = document.getElementById("sectionFilter").value;
 
+  const months = [
+    "ตุลาคม",
+    "พฤศจิกายน",
+    "ธันวาคม",
+    "มกราคม",
+    "กุมภาพันธ์",
+    "มีนาคม",
+    "เมษายน",
+    "พฤษภาคม",
+    "มิถุนายน",
+    "กรกฎาคม",
+    "สิงหาคม",
+    "กันยายน"
+  ];
+
+  const selectedIndex = months.indexOf(selectedMonth);
+  const chartMonths = months.slice(0, selectedIndex + 1);
+
+  const planData = chartMonths.map(month => {
+    const rows = projectData.filter(row =>
+      row.fiscalYear === year &&
+      row.month === month &&
+      (section === "ทั้งหมด" || row.section === section)
+    );
+
+    if (!rows.length) return 0;
+
+    return rows.reduce(
+      (sum, row) => sum + percentValue(row.planCum), 0
+    ) / rows.length;
+  });
+
+  const actualData = chartMonths.map(month => {
+    const rows = projectData.filter(row =>
+      row.fiscalYear === year &&
+      row.month === month &&
+      (section === "ทั้งหมด" || row.section === section)
+    );
+
+    if (!rows.length) return 0;
+
+    return rows.reduce(
+      (sum, row) => sum + percentValue(row.actualCum), 0
+    ) / rows.length;
+  });
+
+  const canvas = document.getElementById("progressChart");
+
+  if (!canvas) return;
+
+  if (progressChart) {
+    progressChart.destroy();
+  }
+
+  progressChart = new Chart(canvas, {
+    type: "line",
+
+    data: {
+      labels: chartMonths,
+
+      datasets: [
+        {
+          label: "แผนสะสมเฉลี่ย",
+          data: planData,
+          borderColor: "#D6A84B",
+          backgroundColor: "#D6A84B",
+          tension: 0.3
+        },
+        {
+          label: "ผลสะสมเฉลี่ย",
+          data: actualData,
+          borderColor: "#2F75B5",
+          backgroundColor: "#2F75B5",
+          tension: 0.3
+        }
+      ]
+    },
+
+    options: {
+      responsive: true,
+
+      plugins: {
+        legend: {
+          position: "bottom"
+        }
+      },
+
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+
+          ticks: {
+            callback: function(value) {
+              return value + "%";
+            }
+          }
+        }
+      }
+    }
+  });
+}
 async function loadData() {
   try {
     const response = await fetch(API_URL);
@@ -456,6 +562,7 @@ function updateDashboard() {
     avgProgress.toFixed(1) + "%";
 
   renderTable(rows);
+  renderProgressChart();
 }
 
 
