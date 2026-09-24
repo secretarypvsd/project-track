@@ -550,6 +550,11 @@ function renderProgressChart() {
       scales: {
         x: {
           stacked: true
+            beginAtZero: true,
+  ticks: {
+    stepSize: 1,
+    precision: 0
+  }
         },
 
         y: {
