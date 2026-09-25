@@ -480,7 +480,17 @@ function renderProgressChart() {
   );
 
   const sectionNames = [...new Set(rows.map(row => row.section))];
+const sectionShortNames = {
+  "ส่วนวิจัยและพัฒนามาตรฐานการประเมินราคาทรัพย์สิน": "วิจัยฯ",
+  "ส่วนบริหารงานเลขานุการคณะกรรมการประเมินราคาทรัพย์สินเพื่อประโยชน์แห่งรัฐ": "เลขานุการฯ",
+  "ส่วนจัดการฐานข้อมูล": "ฐานข้อมูล",
+  "ฝ่ายบริหารงานทั่วไป": "บริหารทั่วไป",
+  "ศูนย์บริหารจัดการราคาประเมินทรัพย์สินแห่งชาติ": "ศูนย์บริหารราคา"
+};
 
+const shortSectionNames = sectionNames.map(
+  name => sectionShortNames[name] || name
+);
   const onTrackData = sectionNames.map(sec =>
     rows.filter(row => row.section === sec && row.status === "ตามแผน").length
   );
@@ -509,7 +519,7 @@ function renderProgressChart() {
     type: "bar",
 
     data: {
-      labels: sectionNames,
+      labels: shortSectionNames,
 
       datasets: [
         {
